@@ -1,126 +1,92 @@
 #!/bin/bash
+
 set -e
 
-echo "🚀 GitLab BONUS SETUP (FINAL CLEAN VERSION)"
+echo "⚡ FAST DEFENSE SETUP (MINIMAL GITOPS)"
 
-NAMESPACE="gitlab"
-RELEASE="gitlab"
+CLUSTER="iot-cluster"
+GITLAB_NS="gitlab"
+ARGO_NS="argocd"
+DEV_NS="dev"
 
-# ---------------------------
-# 1. CLEAN ENVIRONMENT SAFELY
-# ---------------------------
-echo "🧹 Cleaning previous installation..."
+# =====================================================
+# 1. TOOLS CHECK (LIGHT)
+# =====================================================
+echo "🔍 Checking tools..."
 
-helm uninstall $RELEASE -n $NAMESPACE || true
-kubectl delete namespace $NAMESPACE --ignore-not-found=true || true
-
-# wait for full deletion
-while kubectl get namespace $NAMESPACE >/dev/null 2>&1; do
-  echo "⏳ waiting for namespace deletion..."
-  sleep 3
+for cmd in docker kubectl helm k3d; do
+  command -v $cmd >/dev/null 2>&1 || {
+    echo "❌ Missing $cmd"
+    exit 1
+  }
 done
 
-# ---------------------------
-# 2. CREATE NAMESPACE
-# ---------------------------
-kubectl create namespace $NAMESPACE
+docker info >/dev/null 2>&1 || {
+  echo "❌ Docker not running"
+  exit 1
+}
 
-# ---------------------------
-# 3. HELM REPO (SAFE ADD)
-# ---------------------------
-echo "📦 Preparing Helm repository..."
+echo "✅ Tools OK"
 
-if helm repo list | grep -q "^gitlab"; then
-  echo "✔ GitLab repo already exists"
-else
-  helm repo add gitlab https://charts.gitlab.io
+# =====================================================
+# 2. CLUSTER (FAST REUSE OR CREATE)
+# =====================================================
+echo "📦 Checking cluster..."
+
+if ! kubectl cluster-info >/dev/null 2>&1; then
+  echo "🚀 Creating cluster..."
+  k3d cluster delete $CLUSTER || true
+  k3d cluster create $CLUSTER
+  kubectl config use-context k3d-$CLUSTER
 fi
 
-helm repo update
+# =====================================================
+# 3. NAMESPACES (ONLY WHAT MATTERS)
+# =====================================================
+kubectl create namespace $GITLAB_NS --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace $ARGO_NS --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace $DEV_NS --dry-run=client -o yaml | kubectl apply -f -
 
-# ---------------------------
-# 4. MINIMAL VALUES (NO DEPRECATED FIELDS)
-# ---------------------------
-cat > values.yaml <<EOF
-global:
-  hosts:
-    domain: localhost
-    https: false
-  ingress:
-    enabled: false
+# =====================================================
+# 4. GITLAB (MINIMAL CONFIG)
+# =====================================================
+echo "🚀 Installing GitLab..."
 
-nginx-ingress:
-  enabled: false
-
-prometheus:
-  install: false
-
-gitlab-runner:
-  install: false
-
-gitlab:
-  webservice:
-    ingress:
-      enabled: false
-  kas:
-    ingress:
-      enabled: false
-  registry:
-    ingress:
-      enabled: false
-  minio:
-    ingress:
-      enabled: false
-EOF
-
-# ---------------------------
-# 5. INSTALL GITLAB
-# ---------------------------
-echo "📦 Installing GitLab (this may take a few minutes)..."
+helm repo add gitlab https://charts.gitlab.io >/dev/null 2>&1 || true
+helm repo update >/dev/null 2>&1
 
 helm upgrade --install gitlab gitlab/gitlab \
-  -n $NAMESPACE \
-  -f values.yaml \
+  -n $GITLAB_NS \
+  --set global.hosts.domain=localhost \
+  --set global.hosts.https=false \
   --set certmanager-issuer.email=admin@localhost \
   --timeout 1200s
 
-# ---------------------------
-# 6. WAIT FOR CORE SERVICE
-# ---------------------------
-echo "⏳ Waiting for GitLab webservice..."
+# =====================================================
+# 5. ARGO CD
+# =====================================================
+echo "🚀 Installing Argo CD..."
 
-kubectl wait --for=condition=Ready pod \
-  -l app=webservice \
-  -n $NAMESPACE \
-  --timeout=1200s || true
+helm repo add argo https://argoproj.github.io/argo-helm >/dev/null 2>&1 || true
+helm repo update >/dev/null 2>&1
 
-# ---------------------------
-# 7. GET ROOT PASSWORD
-# ---------------------------
-echo "🔑 Fetching root password..."
+helm upgrade --install argocd argo/argo-cd \
+  -n $ARGO_NS \
+  --timeout 600s
 
-PASS=$(kubectl get secret gitlab-gitlab-initial-root-password \
-  -n $NAMESPACE \
-  -o jsonpath="{.data.password}" | base64 -d)
-
-echo "======================================"
-echo "🎉 GitLab is READY"
-echo "--------------------------------------"
-echo "URL: http://localhost:8082"
-echo "User: root"
-echo "Password: $PASS"
-echo "======================================"
-
-# ---------------------------
-# 8. ACCESS INSTRUCTIONS
-# ---------------------------
-echo "👉 Run this command in another terminal:"
-echo "kubectl port-forward svc/gitlab-webservice-default -n gitlab 8082:8181"
+# =====================================================
+# 6. DONE — NO WAITING (IMPORTANT FOR SPEED)
+# =====================================================
+echo "⚡ NOT WAITING FOR PODS (FAST MODE)"
 
 echo ""
-echo "Then open: http://localhost:8082"
-
-# ---------------------------
-# DONE
-# ---------------------------
-echo "✅ BONUS SETUP COMPLETE"
+echo "🎉 READY FOR DEFENSE"
+echo ""
+echo "👉 GitLab:"
+echo "kubectl port-forward svc/gitlab-webservice-default -n gitlab 8082:8181"
+echo ""
+echo "👉 Argo CD:"
+echo "kubectl port-forward svc/argocd-server -n argocd 8080:443"
+echo ""
+echo "👉 Get GitLab password:"
+echo "kubectl get secret gitlab-gitlab-initial-root-password -n gitlab -o jsonpath='{.data.password}' | base64 -d"
