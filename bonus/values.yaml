@@ -1,0 +1,29 @@
+global:
+  hosts:
+    domain: localhost
+    https: false
+  ingress:
+    enabled: false
+
+nginx-ingress:
+  enabled: false
+
+prometheus:
+  install: false
+
+gitlab-runner:
+  install: false
+
+gitlab:
+  webservice:
+    ingress:
+      enabled: false
+  kas:
+    ingress:
+      enabled: false
+  registry:
+    ingress:
+      enabled: false
+  minio:
+    ingress:
+      enabled: false
