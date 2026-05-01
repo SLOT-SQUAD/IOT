@@ -1,22 +1,18 @@
-#!/bin/bash
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--bind-address=192.168.56.110 --node-ip=192.168.56.110 --flannel-iface=eth1 --write-kubeconfig-mode 644" sh - && echo "k3s server installed successfully......"
 
-set -e
+echo "Attente de la génération du token..."
+while [ ! -f /var/lib/rancher/k3s/server/node-token ]; do
+  sleep 2
+done
 
-TOKEN="iot-cluster-token"
+sudo cp /var/lib/rancher/k3s/server/node-token /vagrant/confs/server_token.txt
+sudo cp /etc/rancher/k3s/k3s.yaml /vagrant/confs/k3s.yaml
 
-echo "[SERVER] Updating packages..."
-apt-get update -y
-
-echo "[SERVER] Installing curl..."
-apt-get install -y curl
-
-echo "[SERVER] Installing K3s server..."
-curl -sfL https://get.k3s.io | K3S_TOKEN="$TOKEN" INSTALL_K3S_EXEC="server --node-ip=192.168.56.110 --advertise-address=192.168.56.110" sh -
-
-echo "[SERVER] Preparing kubeconfig for vagrant user..."
 mkdir -p /home/vagrant/.kube
-cp /etc/rancher/k3s/k3s.yaml /home/vagrant/.kube/config
-chown -R vagrant:vagrant /home/vagrant/.kube
-chmod 600 /home/vagrant/.kube/config
+sudo cp /etc/rancher/k3s/k3s.yaml /home/vagrant/.kube/config
+sudo chown vagrant:vagrant /home/vagrant/.kube/config
+echo "export KUBECONFIG=/home/vagrant/.kube/config" >> /home/vagrant/.bashrc
 
-echo "[SERVER] K3s server installation completed."
+sudo apt install -y net-tools > /dev/null
+
+echo "Installation du Master terminée et kubectl est prêt !"

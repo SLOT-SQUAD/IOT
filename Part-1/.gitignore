@@ -1,0 +1,14 @@
+# Vagrant
+.vagrant/
+**/.vagrant/
+
+# VirtualBox VM files and logs
+*.log
+*.vdi
+*.vbox
+*.vbox-prev
+*.box
+
+# Accidental VirtualBox diagnostic text files
+*VBox*
+*VirtualBox*

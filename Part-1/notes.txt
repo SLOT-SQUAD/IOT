@@ -1,0 +1,11 @@
+vagrant halt
+vagrant up
+vagrant destroy -f
+
+
+vagrant ssh clyamaniS
+hostname
+sudo kubectl get noes
+sudo systemctl status k3s --no-pager
+
+
