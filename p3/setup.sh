@@ -8,7 +8,7 @@ ARGO_NS="argocd"
 DEV_NS="dev"
 
 REPO_URL="https://github.com/SLOT-SQUAD/IOT.git"
-APP_PATH="part3/deployApp"
+APP_PATH="p3/deployApp"
 
 # =====================================================
 # 1. CLEAN CLUSTER
@@ -97,9 +97,16 @@ kubectl patch application demo-app -n $ARGO_NS \
 # =====================================================
 # 9. WAIT FOR APP
 # =====================================================
-echo "⏳ Waiting for app deployment..."
 
-kubectl wait --for=condition=available deployment nginx -n $DEV_NS --timeout=120s
+kubectl wait --for=condition=available deployment playground \
+  -n $DEV_NS \
+  --timeout=180s || {
+    echo "⚠️  App not ready yet, checking ArgoCD sync status..."
+    kubectl get application demo-app -n $ARGO_NS
+    kubectl get pods -n $DEV_NS
+    echo "👉 Wait a moment and check manually:"
+    echo "   kubectl get pods -n dev"
+  }
 
 echo "✅ App deployed"
 
