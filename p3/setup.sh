@@ -97,17 +97,11 @@ kubectl patch application demo-app -n $ARGO_NS \
 # =====================================================
 # 9. WAIT FOR APP
 # =====================================================
-echo "⏳ Waiting for app deployment..."
 
-# Replace step 9 with this
-echo "⏳ Waiting for ArgoCD to sync..."
-sleep 15  # give ArgoCD time to pull from GitHub and apply
-
-# Wait for the sync to complete
-kubectl wait --for=condition=available deployment nginx \
+kubectl wait --for=condition=available deployment playground \
   -n $DEV_NS \
   --timeout=180s || {
-    echo "⚠️  Nginx not ready yet, checking ArgoCD sync status..."
+    echo "⚠️  App not ready yet, checking ArgoCD sync status..."
     kubectl get application demo-app -n $ARGO_NS
     kubectl get pods -n $DEV_NS
     echo "👉 Wait a moment and check manually:"
