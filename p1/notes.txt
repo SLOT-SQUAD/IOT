@@ -9,3 +9,10 @@ sudo kubectl get noes
 sudo systemctl status k3s --no-pager
 
 
+vagrant halt
+vagrant destroy
+vagrant global-status --prune 
+rm -rf .vagrant
+cd
+cd .vagrant.d/boxes/
+rm -rf bento-VAGRANTSLASH-ubuntu-22.04/
