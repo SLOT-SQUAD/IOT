@@ -27,9 +27,28 @@ curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server \
   --flannel-iface=$PRIVATE_IFACE \
   --write-kubeconfig-mode=644" sh -
 
-echo "[SERVER] Waiting for K3s to be ready..."
-until sudo kubectl get nodes; do
-  sleep 2
+echo "[SERVER] Waiting for k3s systemd service..."
+until sudo systemctl is-active --quiet k3s; do
+  sudo systemctl status k3s --no-pager || true
+  sleep 5
+done
+
+echo "[SERVER] Waiting for port 6443..."
+until sudo ss -lnt | grep -q ':6443'; do
+  sleep 5
+done
+
+echo "[SERVER] Waiting for Kubernetes API /readyz..."
+until sudo kubectl get --raw='/readyz' >/dev/null 2>&1; do
+  sleep 5
+done
+
+echo "[SERVER] Waiting for node to be Ready..."
+NODE_NAME=$(hostname | tr '[:upper:]' '[:lower:]')
+
+until sudo kubectl get node "$NODE_NAME" 2>/dev/null | grep -q " Ready "; do
+  sudo kubectl get nodes || true
+  sleep 5
 done
 
 echo "[SERVER] Preparing kubeconfig for vagrant user..."
@@ -41,4 +60,4 @@ sudo chmod 600 /home/vagrant/.kube/config
 grep -qxF 'export KUBECONFIG=/home/vagrant/.kube/config' /home/vagrant/.bashrc || \
   echo 'export KUBECONFIG=/home/vagrant/.kube/config' >> /home/vagrant/.bashrc
 
-echo "[SERVER] K3s server installed successfully."
+echo "[SERVER] K3s server installed successfully and node is Ready."
